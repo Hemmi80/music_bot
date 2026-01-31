@@ -61,15 +61,18 @@ module.exports = {
         return;
       }
 
-      let result = await player.play(channel, query, { nodeOptions }).catch((e) => e);
-      let track = result?.track;
-      if (!track && isYoutubeUrl(query)) {
+      let track;
+      if (isYoutubeUrl(query)) {
         const fallback = await getStreamInfo(query);
         if (fallback?.streamUrl) {
-          result = await player.play(channel, fallback.streamUrl, { nodeOptions }).catch(() => null);
+          const result = await player.play(channel, fallback.streamUrl, { nodeOptions }).catch(() => null);
           track = result?.track;
           if (track && fallback.title) track.title = fallback.title;
         }
+      }
+      if (!track) {
+        const result = await player.play(channel, query, { nodeOptions }).catch((e) => e);
+        track = result?.track;
       }
       if (!track) {
         return interaction.followUp({ content: 'Nothing found for that query.' });

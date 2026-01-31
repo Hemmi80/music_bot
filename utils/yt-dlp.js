@@ -1,6 +1,6 @@
 const { spawn } = require('child_process');
 
-const YOUTUBE_URL_REGEX = /^https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/;
+const YOUTUBE_URL_REGEX = /^https?:\/\/(?:(?:www\.|m\.)?youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)[\w-]+/;
 
 function isYoutubeUrl(query) {
   return typeof query === 'string' && YOUTUBE_URL_REGEX.test(query.trim());
@@ -10,6 +10,8 @@ function isYoutubeUrl(query) {
  * Get direct audio stream URL and title for a YouTube URL using yt-dlp.
  * Returns { streamUrl, title } or null if yt-dlp fails or is not installed.
  */
+const YT_DLP_TIMEOUT_MS = 15000;
+
 function getStreamInfo(youtubeUrl) {
   return new Promise((resolve) => {
     const trimmed = youtubeUrl.trim();
@@ -19,15 +21,18 @@ function getStreamInfo(youtubeUrl) {
     }
     const proc = spawn(
       'yt-dlp',
-      ['-x', '-g', '--get-title', '--no-playlist', '--no-warnings', '--quiet', trimmed],
+      ['-x', '-g', '--get-title', '--no-playlist', '--no-warnings', '--quiet', '--no-check-certificate', trimmed],
       { stdio: ['ignore', 'pipe', 'pipe'] }
     );
     let stdout = '';
-    let stderr = '';
     proc.stdout?.on('data', (d) => { stdout += d.toString(); });
-    proc.stderr?.on('data', (d) => { stderr += d.toString(); });
     proc.on('error', () => resolve(null));
+    const t = setTimeout(() => {
+      try { proc.kill('SIGKILL'); } catch (_) {}
+      resolve(null);
+    }, YT_DLP_TIMEOUT_MS);
     proc.on('close', (code) => {
+      clearTimeout(t);
       if (code !== 0) {
         resolve(null);
         return;

@@ -1,6 +1,6 @@
-# Install yt-dlp for YouTube fallback when extractor fails; ffmpeg for audio
+# Add yt-dlp for YouTube (keep provider defaults with ...)
 [phases.setup]
-nixPkgs = ["nodejs_20", "ffmpeg", "yt-dlp"]
+nixPkgs = ["...", "yt-dlp"]
 
 [phases.install]
 cmds = ["npm ci"]
