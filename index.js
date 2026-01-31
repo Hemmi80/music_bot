@@ -6,6 +6,14 @@ const { token } = require('./config');
 const path = require('path');
 const fs = require('fs');
 
+if (!token || typeof token !== 'string' || !token.trim()) {
+  console.error(
+    'DISCORD_TOKEN is missing or empty. On Railway: set the DISCORD_TOKEN variable in your service (Variables tab). ' +
+    'Get a token from https://discord.com/developers/applications → your app → Bot → Reset Token.'
+  );
+  process.exit(1);
+}
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
