@@ -21,8 +21,12 @@ for (const ev of playerEvents) {
   player.events.on(ev.name, ev.execute);
 }
 
+// ANDROID client + disablePlayer avoids signature decipher (fixes "Failed to extract signature decipher algorithm" and reduces memory)
 async function loadExtractors() {
-  await player.extractors.register(YoutubeiExtractor, {});
+  await player.extractors.register(YoutubeiExtractor, {
+    disablePlayer: true,
+    streamOptions: { useClient: 'ANDROID' },
+  });
   await player.extractors.loadMulti(DefaultExtractors);
 }
 

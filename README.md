@@ -59,6 +59,8 @@ So you don’t need a Spotify Developer app; Spotify is supported via YouTube.
 3. Ensure FFmpeg is available (e.g. use an FFmpeg buildpack or a Dockerfile that installs FFmpeg).
 4. Deploy; the bot will register slash commands on startup.
 
+**Memory:** If you see "Killed" or out-of-memory errors, increase the service memory in Railway (**Settings → Resources**). The Hobby plan provides more memory for the YouTube/SoundCloud stack.
+
 ## License
 
 MIT
