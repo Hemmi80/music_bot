@@ -1,0 +1,14 @@
+---
+description: After making code changes, always commit and push to GitHub
+alwaysApply: true
+---
+
+# Always push to GitHub
+
+When you edit files in this project:
+
+1. Stage all relevant changes (`git add`).
+2. Commit with a clear message describing the change.
+3. Push to the default remote branch (e.g. `git push origin main`).
+
+Do this as part of the same task—don’t leave uncommitted or unpushed changes unless the user asks otherwise.
