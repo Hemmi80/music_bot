@@ -1,0 +1,9 @@
+# Install yt-dlp for YouTube fallback when extractor fails; ffmpeg for audio
+[phases.setup]
+nixPkgs = ["nodejs_20", "ffmpeg", "yt-dlp"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[start]
+cmd = "npm start"

@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { isSpotifyUrl, getSpotifyTracks } = require('../utils/spotify');
+const { isYoutubeUrl, getStreamInfo } = require('../utils/yt-dlp');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -60,12 +61,37 @@ module.exports = {
         return;
       }
 
-      const { track } = await player.play(channel, query, { nodeOptions });
+      let result = await player.play(channel, query, { nodeOptions }).catch((e) => e);
+      let track = result?.track;
+      if (!track && isYoutubeUrl(query)) {
+        const fallback = await getStreamInfo(query);
+        if (fallback?.streamUrl) {
+          result = await player.play(channel, fallback.streamUrl, { nodeOptions }).catch(() => null);
+          track = result?.track;
+          if (track && fallback.title) track.title = fallback.title;
+        }
+      }
       if (!track) {
         return interaction.followUp({ content: 'Nothing found for that query.' });
       }
       return interaction.followUp({ content: `**${track.title}** enqueued!` });
     } catch (err) {
+      const msg = err?.message || '';
+      if (isYoutubeUrl(query) && (msg.includes('No results found') || msg.includes('No results'))) {
+        const fallback = await getStreamInfo(query);
+        if (fallback?.streamUrl) {
+          try {
+            const result = await player.play(channel, fallback.streamUrl, { nodeOptions });
+            const track = result?.track;
+            if (track) {
+              if (fallback.title) track.title = fallback.title;
+              return interaction.followUp({ content: `**${track.title}** enqueued (via yt-dlp).` });
+            }
+          } catch (e) {
+            console.error('yt-dlp fallback error:', e);
+          }
+        }
+      }
       console.error('Play error:', err);
       return interaction.followUp({
         content: `Something went wrong: ${err.message}`,
