@@ -7,10 +7,15 @@ const path = require('path');
 const fs = require('fs');
 
 if (!token || typeof token !== 'string' || !token.trim()) {
-  console.error(
-    'DISCORD_TOKEN is missing or empty. On Railway: set the DISCORD_TOKEN variable in your service (Variables tab). ' +
-    'Get a token from https://discord.com/developers/applications → your app → Bot → Reset Token.'
+  const tokenLikeKeys = Object.keys(process.env).filter(
+    (k) => k.includes('DISCORD') || k.includes('TOKEN')
   );
+  console.error(
+    'DISCORD_TOKEN is missing or empty. On Railway: set DISCORD_TOKEN in your service Variables tab.'
+  );
+  if (tokenLikeKeys.length) {
+    console.error('Env keys that might be relevant:', tokenLikeKeys.join(', '));
+  }
   process.exit(1);
 }
 
