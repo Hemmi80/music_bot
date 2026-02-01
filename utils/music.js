@@ -35,18 +35,34 @@ class MusicQueue {
   async connect(voiceChannel, textChannel) {
     this.textChannel = textChannel;
     
+    console.log('[voice] Attempting to join:', voiceChannel.name, voiceChannel.id);
+    console.log('[voice] Guild:', voiceChannel.guild.name, voiceChannel.guild.id);
+    
     this.connection = joinVoiceChannel({
       channelId: voiceChannel.id,
       guildId: voiceChannel.guild.id,
       adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      selfDeaf: true,
+      selfMute: false,
+    });
+    
+    // Debug: log all state changes
+    this.connection.on('stateChange', (oldState, newState) => {
+      console.log(`[voice] State: ${oldState.status} -> ${newState.status}`);
+    });
+    
+    this.connection.on('error', (error) => {
+      console.error('[voice] Connection error:', error);
     });
     
     // Wait for connection to be ready
     try {
+      console.log('[voice] Waiting for Ready state...');
       await entersState(this.connection, VoiceConnectionStatus.Ready, 30_000);
       console.log('[voice] Connected to', voiceChannel.name);
     } catch (error) {
-      console.error('[voice] Failed to connect:', error.message);
+      console.error('[voice] Failed to connect:', error);
+      console.error('[voice] Current state:', this.connection.state.status);
       this.connection.destroy();
       throw new Error('Could not connect to voice channel');
     }
