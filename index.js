@@ -12,18 +12,24 @@ console.log('=== Music Bot Starting ===');
 const ytDlpOk = checkYtDlp();
 console.log('yt-dlp available:', ytDlpOk);
 
-// Check ffmpeg
+// Find FFmpeg path
+let ffmpegPath = null;
 try {
   require('child_process').execSync('ffmpeg -version', { stdio: 'ignore' });
+  ffmpegPath = 'ffmpeg'; // system ffmpeg
   console.log('ffmpeg: available (system)');
 } catch {
   try {
-    const ffmpegPath = require('ffmpeg-static');
+    ffmpegPath = require('ffmpeg-static');
     console.log('ffmpeg: available (ffmpeg-static):', ffmpegPath);
-    process.env.FFMPEG_PATH = ffmpegPath;
   } catch {
     console.error('ffmpeg: NOT FOUND - audio will not work!');
   }
+}
+
+// Set FFMPEG_PATH environment variable for discord-player
+if (ffmpegPath) {
+  process.env.FFMPEG_PATH = ffmpegPath;
 }
 
 if (!token || typeof token !== 'string' || !token.trim()) {
@@ -39,8 +45,12 @@ const client = new Client({
   ],
 });
 
-const player = new Player(client);
+// Create player with explicit FFmpeg configuration
+const player = new Player(client, {
+  skipFFmpeg: false,
+});
 client.player = player;
+console.log('Player created with skipFFmpeg: false');
 
 const playerEvents = require('./events/playerEvents');
 for (const ev of playerEvents) {
