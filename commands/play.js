@@ -1,7 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const { getQueue } = require('../utils/music');
 const { spawn } = require('child_process');
-const { getData } = require('spotify-url-info')(fetch);
 
 // Get video info from yt-dlp (works with URLs and search queries)
 async function getVideoInfo(query) {
@@ -49,21 +48,24 @@ function isYoutubeUrl(url) {
   return url.includes('youtube.com') || url.includes('youtu.be');
 }
 
-// Get track info from Spotify
+// Get track info from Spotify using oEmbed API (no auth needed)
 async function getSpotifyInfo(url) {
   try {
-    const data = await getData(url);
-    console.log('[spotify] Got data:', data.type, data.name);
+    const oembedUrl = `https://open.spotify.com/oembed?url=${encodeURIComponent(url)}`;
+    console.log('[spotify] Fetching oEmbed:', oembedUrl);
     
-    if (data.type === 'track') {
-      const artist = data.artists?.[0]?.name || '';
-      const title = data.name || '';
-      return { searchQuery: `${artist} ${title}`.trim(), title: `${artist} - ${title}` };
-    } else if (data.type === 'album' || data.type === 'playlist') {
-      // For now just get first track
-      return { searchQuery: data.name, title: data.name };
+    const response = await fetch(oembedUrl);
+    if (!response.ok) {
+      console.error('[spotify] oEmbed failed:', response.status);
+      return null;
     }
-    return null;
+    
+    const data = await response.json();
+    console.log('[spotify] Got oEmbed:', data.title);
+    
+    // oEmbed title format is usually "Song Name - Artist" or "Song Name"
+    const title = data.title || '';
+    return { searchQuery: title, title: title };
   } catch (error) {
     console.error('[spotify] Error:', error.message);
     return null;
