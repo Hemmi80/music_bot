@@ -2,6 +2,7 @@ const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
+  StreamType,
   AudioPlayerStatus,
   VoiceConnectionStatus,
   entersState,
@@ -123,23 +124,28 @@ class MusicQueue {
     console.log('[resource] Creating for:', track.url);
     
     return new Promise((resolve, reject) => {
-      // Use yt-dlp to pipe audio through ffmpeg
+      // Use yt-dlp to get best audio quality
       const ytdlp = spawn('yt-dlp', [
-        '-f', 'bestaudio',
+        '-f', 'bestaudio/best',
         '-o', '-',
         '--no-playlist',
         '--no-warnings',
-        '-q',
         track.url
       ], { stdio: ['ignore', 'pipe', 'pipe'] });
       
+      // Convert to high-quality Opus in OGG container (Discord's native format)
       const ffmpeg = spawn('ffmpeg', [
         '-i', 'pipe:0',
         '-analyzeduration', '0',
         '-loglevel', 'warning',
-        '-f', 's16le',
-        '-ar', '48000',
-        '-ac', '2',
+        '-acodec', 'libopus',      // Opus codec (Discord native)
+        '-f', 'ogg',               // OGG container
+        '-ar', '48000',            // 48kHz (Discord standard)
+        '-ac', '2',                // Stereo
+        '-b:a', '128k',            // 128kbps bitrate (good quality)
+        '-vbr', 'on',              // Variable bitrate for better quality
+        '-compression_level', '10', // Best compression quality
+        '-application', 'audio',   // Optimize for music
         'pipe:1'
       ], { stdio: ['pipe', 'pipe', 'pipe'] });
       
@@ -166,16 +172,16 @@ class MusicQueue {
         if (msg && !msg.includes('size=')) console.log('[ffmpeg]', msg);
       });
       
-      // Create audio resource from ffmpeg output
+      // Create audio resource with OggOpus (no re-encoding needed by discord.js)
       const resource = createAudioResource(ffmpeg.stdout, {
-        inputType: 'raw',
-        inlineVolume: true,
+        inputType: StreamType.OggOpus,
+        inlineVolume: false, // Can't use with OggOpus, but quality is better
       });
       
       // Set metadata
       resource.metadata = track;
       
-      console.log('[resource] Created successfully');
+      console.log('[resource] Created successfully (Opus 128kbps)');
       resolve(resource);
     });
   }
