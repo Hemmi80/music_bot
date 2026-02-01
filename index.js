@@ -45,12 +45,14 @@ const client = new Client({
   ],
 });
 
-// Create player with explicit FFmpeg configuration
+// Create player with explicit FFmpeg configuration and longer timeouts
 const player = new Player(client, {
   skipFFmpeg: false,
+  probeTimeout: 15000,        // 15 seconds to probe stream (default is 5)
+  connectionTimeout: 30000,   // 30 seconds to connect
 });
 client.player = player;
-console.log('Player created with skipFFmpeg: false');
+console.log('Player created with extended timeouts');
 
 const playerEvents = require('./events/playerEvents');
 for (const ev of playerEvents) {
