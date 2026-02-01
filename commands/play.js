@@ -140,10 +140,13 @@ module.exports = {
     // Add track to queue
     queue.addTrack({ title: info.title, url: info.url });
 
-    // If nothing is playing, start playback
-    if (!queue.currentTrack) {
+    // Add track and start playing if needed
+    const wasEmpty = !queue.currentTrack;
+    
+    if (wasEmpty) {
       await queue.playNext();
-      return interaction.followUp(`Now playing: **${info.title}**`);
+      // Delete the "thinking" reply since music.js sends "Now playing"
+      return interaction.deleteReply().catch(() => {});
     } else {
       return interaction.followUp(`Added to queue: **${info.title}**`);
     }
