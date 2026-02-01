@@ -63,18 +63,32 @@ module.exports = {
 
       let track;
       if (isYoutubeUrl(query)) {
+        console.log('[play] YouTube URL detected, trying yt-dlp first');
         const fallback = await getStreamInfo(query);
         if (fallback?.streamUrl) {
-          const result = await player.play(channel, fallback.streamUrl, { nodeOptions }).catch(() => null);
+          console.log('[play] Got yt-dlp stream, playing...');
+          const result = await player.play(channel, fallback.streamUrl, { nodeOptions }).catch((e) => {
+            console.log('[play] yt-dlp stream play error:', e.message);
+            return null;
+          });
           track = result?.track;
           if (track && fallback.title) track.title = fallback.title;
+          if (track) console.log('[play] yt-dlp stream worked!');
+        } else {
+          console.log('[play] yt-dlp returned no stream');
         }
       }
       if (!track) {
-        const result = await player.play(channel, query, { nodeOptions }).catch((e) => e);
+        console.log('[play] Trying discord-player extractor for:', query);
+        const result = await player.play(channel, query, { nodeOptions }).catch((e) => {
+          console.log('[play] Extractor error:', e.message);
+          return e;
+        });
         track = result?.track;
+        if (track) console.log('[play] Extractor worked, track:', track.title);
       }
       if (!track) {
+        console.log('[play] No track found');
         return interaction.followUp({ content: 'Nothing found for that query.' });
       }
       return interaction.followUp({ content: `**${track.title}** enqueued!` });

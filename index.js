@@ -3,8 +3,12 @@ const { Player } = require('discord-player');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const { token } = require('./config');
+const { checkYtDlp } = require('./utils/yt-dlp');
 const path = require('path');
 const fs = require('fs');
+
+// Check yt-dlp availability at startup
+checkYtDlp();
 
 if (!token || typeof token !== 'string' || !token.trim()) {
   const tokenLikeKeys = Object.keys(process.env).filter(
