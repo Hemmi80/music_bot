@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { useQueue } = require('discord-player');
+const { getQueue } = require('../utils/music');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,11 +7,13 @@ module.exports = {
     .setDescription('Stop playback and clear the queue'),
 
   async execute(interaction) {
-    const queue = useQueue(interaction.guildId);
-    if (!queue) {
+    const queue = interaction.client.queues.get(interaction.guildId);
+    if (!queue || !queue.connection) {
       return interaction.reply({ content: 'Nothing is playing.', ephemeral: true });
     }
+    
     queue.destroy();
-    return interaction.reply({ content: 'Stopped and cleared the queue.' });
+    interaction.client.queues.delete(interaction.guildId);
+    return interaction.reply('Stopped and disconnected.');
   },
 };

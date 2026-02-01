@@ -1,81 +1,92 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { isSpotifyUrl, getSpotifyTracks } = require('../utils/spotify');
-const { isYoutubeUrl, getStreamInfo } = require('../utils/yt-dlp');
+const { getQueue } = require('../utils/music');
+const { spawn } = require('child_process');
+
+// Get video title from yt-dlp
+async function getVideoInfo(url) {
+  return new Promise((resolve) => {
+    const proc = spawn('yt-dlp', [
+      '--get-title',
+      '--no-playlist',
+      '--no-warnings',
+      '-q',
+      url
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    
+    let title = '';
+    proc.stdout.on('data', (d) => { title += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0 && title.trim()) {
+        resolve({ title: title.trim(), url });
+      } else {
+        resolve(null);
+      }
+    });
+    proc.on('error', () => resolve(null));
+    
+    // Timeout after 10 seconds
+    setTimeout(() => {
+      proc.kill();
+      resolve(null);
+    }, 10000);
+  });
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('Play a YouTube, SoundCloud, or Spotify link')
-    .addStringOption((opt) =>
-      opt.setName('query').setDescription('URL or search term').setRequired(true)
+    .setDescription('Play a YouTube URL')
+    .addStringOption(opt =>
+      opt.setName('url')
+        .setDescription('YouTube URL to play')
+        .setRequired(true)
     ),
 
   async execute(interaction) {
-    const channel = interaction.member?.voice?.channel;
-    if (!channel) {
-      return interaction.reply({ content: 'You need to be in a voice channel.', ephemeral: true });
+    const voiceChannel = interaction.member?.voice?.channel;
+    if (!voiceChannel) {
+      return interaction.reply({ content: 'Join a voice channel first!', ephemeral: true });
     }
 
-    const query = interaction.options.getString('query', true).trim();
+    const url = interaction.options.getString('url', true).trim();
     await interaction.deferReply();
 
-    const player = interaction.client.player;
-    const nodeOptions = { metadata: interaction };
+    // Check if it's a valid URL
+    if (!url.includes('youtube.com') && !url.includes('youtu.be')) {
+      return interaction.followUp('Please provide a YouTube URL.');
+    }
 
-    try {
-      // YouTube: use yt-dlp
-      if (isYoutubeUrl(query)) {
-        console.log('[play] YouTube URL:', query);
-        const info = await getStreamInfo(query);
-        if (!info?.streamUrl) {
-          return interaction.followUp({ content: 'Could not get stream from YouTube. yt-dlp may have failed.' });
-        }
-        console.log('[play] Got stream URL, title:', info.title);
-        const result = await player.play(channel, info.streamUrl, { nodeOptions });
-        if (result?.track) {
-          result.track.title = info.title || 'YouTube Video';
-          return interaction.followUp({ content: `**${result.track.title}** enqueued!` });
-        }
-        return interaction.followUp({ content: 'Could not play the stream.' });
+    console.log('[play] URL:', url);
+
+    // Get video info
+    const info = await getVideoInfo(url);
+    if (!info) {
+      return interaction.followUp('Could not get video info. Make sure the URL is valid.');
+    }
+
+    console.log('[play] Title:', info.title);
+
+    // Get or create queue
+    const queue = getQueue(interaction.client, interaction.guildId);
+
+    // Connect if not connected
+    if (!queue.connection) {
+      try {
+        await queue.connect(voiceChannel, interaction.channel);
+      } catch (error) {
+        return interaction.followUp(`Could not connect: ${error.message}`);
       }
+    }
 
-      // Spotify: get track info and search on SoundCloud
-      if (isSpotifyUrl(query)) {
-        console.log('[play] Spotify URL:', query);
-        const tracks = await getSpotifyTracks(query);
-        if (!tracks.length) {
-          return interaction.followUp({ content: "Couldn't get track info from Spotify link." });
-        }
-        const searchQuery = `${tracks[0].artist} ${tracks[0].title}`;
-        console.log('[play] Searching SoundCloud for:', searchQuery);
-        const result = await player.play(channel, searchQuery, {
-          nodeOptions,
-          searchEngine: 'soundcloud',
-        }).catch((e) => {
-          console.log('[play] SoundCloud search error:', e.message);
-          return null;
-        });
-        if (result?.track) {
-          return interaction.followUp({ content: `**${result.track.title}** enqueued (from Spotify via SoundCloud)!` });
-        }
-        return interaction.followUp({ content: `Could not find "${searchQuery}" on SoundCloud.` });
-      }
+    // Add track to queue
+    queue.addTrack({ title: info.title, url: info.url });
 
-      // SoundCloud or other: use discord-player directly
-      console.log('[play] Direct query:', query);
-      const result = await player.play(channel, query, { nodeOptions }).catch((e) => {
-        console.log('[play] Player error:', e.message);
-        return null;
-      });
-      if (result?.track) {
-        console.log('[play] Success:', result.track.title);
-        return interaction.followUp({ content: `**${result.track.title}** enqueued!` });
-      }
-      return interaction.followUp({ content: 'Nothing found for that query.' });
-
-    } catch (err) {
-      console.error('[play] Error:', err);
-      return interaction.followUp({ content: `Something went wrong: ${err.message}` });
+    // If nothing is playing, start playback
+    if (!queue.currentTrack) {
+      await queue.playNext();
+      return interaction.followUp(`Now playing: **${info.title}**`);
+    } else {
+      return interaction.followUp(`Added to queue: **${info.title}**`);
     }
   },
 };

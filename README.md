@@ -1,69 +1,44 @@
-# Discord Music Bot
+# Discord Music Bot v2
 
-A Discord bot that plays music from **YouTube** (via yt-dlp), **SoundCloud**, and **Spotify** links.
+A simple Discord music bot that plays YouTube audio using **@discordjs/voice** and **yt-dlp**.
 
-- **YouTube**: Uses yt-dlp (more reliable than JS libraries)
-- **SoundCloud**: Direct support
-- **Spotify**: Resolves track info and searches on SoundCloud
+## Features
+
+- `/play <url>` - Play a YouTube video
+- `/skip` - Skip the current track
+- `/stop` - Stop and disconnect
+- `/pause` - Pause/resume playback
+- `/queue` - Show the queue
+
+## How it works
+
+1. **yt-dlp** downloads the audio stream from YouTube
+2. **FFmpeg** converts it to PCM
+3. **@discordjs/voice** plays it in Discord
+
+No complex extractor libraries - just simple piping.
 
 ## Requirements
 
-- **Node.js 18+**
-- **FFmpeg** installed and on your PATH ([download](https://ffmpeg.org))
-- A **Discord bot token** ([Discord Developer Portal](https://discord.com/developers/applications))
+- Node.js 18+
+- FFmpeg
+- yt-dlp
+- A Discord bot token
 
 ## Setup
 
-1. Clone or download this repo.
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create a `.env` file in the project root (or copy `.env.example`) and add your bot token:
-   ```
-   DISCORD_TOKEN=your_bot_token_here
-   ```
-4. Invite the bot to your server with these permissions: **View Channels**, **Send Messages**, **Embed Links**, **Use Slash Commands**, **Connect**, **Speak** (and optionally **Read Message History**).
+1. Clone this repo
+2. `npm install`
+3. Create `.env` with `DISCORD_TOKEN=your_token`
+4. `npm start`
 
-## Run
+## Hosting on Railway
 
-```bash
-npm start
-```
+Uses Dockerfile which installs ffmpeg and yt-dlp automatically.
 
-Or:
-
-```bash
-node index.js
-```
-
-## Commands
-
-| Command | Description |
-|--------|-------------|
-| `/play <url or search>` | Play a YouTube, SoundCloud, or Spotify link (or search). Spotify links are turned into YouTube searches. |
-| `/stop` | Stop playback and clear the queue. |
-| `/skip` | Skip the current track. |
-| `/queue` | Show the current queue. |
-| `/pause` | Pause or resume playback. |
-
-## Spotify (no app)
-
-When someone uses a Spotify track, playlist, or album link, the bot:
-
-1. Fetches track titles and artists from the link (no Spotify API).
-2. Searches YouTube for each track and plays the match.
-
-So you don’t need a Spotify Developer app; Spotify is supported via YouTube.
-
-## Hosting (e.g. Railway)
-
-1. Push the repo to GitHub and connect it to Railway.
-2. Set the **DISCORD_TOKEN** environment variable in the Railway dashboard.
-3. Ensure FFmpeg is available (e.g. use an FFmpeg buildpack or a Dockerfile that installs FFmpeg).
-4. Deploy; the bot will register slash commands on startup.
-
-**Memory:** If you see "Killed" or out-of-memory errors, increase the service memory in Railway (**Settings → Resources**). The Hobby plan provides more memory for the YouTube/SoundCloud stack.
+1. Connect repo to Railway
+2. Set `DISCORD_TOKEN` environment variable
+3. Deploy
 
 ## License
 

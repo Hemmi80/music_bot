@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { useQueue } = require('discord-player');
+const { AudioPlayerStatus } = require('@discordjs/voice');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,12 +7,17 @@ module.exports = {
     .setDescription('Pause or resume playback'),
 
   async execute(interaction) {
-    const queue = useQueue(interaction.guildId);
-    if (!queue) {
+    const queue = interaction.client.queues.get(interaction.guildId);
+    if (!queue || !queue.currentTrack) {
       return interaction.reply({ content: 'Nothing is playing.', ephemeral: true });
     }
-    const paused = queue.node.isPaused();
-    queue.node.setPaused(!paused);
-    return interaction.reply({ content: paused ? 'Resumed.' : 'Paused.' });
+    
+    if (queue.player.state.status === AudioPlayerStatus.Paused) {
+      queue.resume();
+      return interaction.reply('Resumed.');
+    } else {
+      queue.pause();
+      return interaction.reply('Paused.');
+    }
   },
 };

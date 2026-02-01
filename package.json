@@ -1,7 +1,7 @@
 {
   "name": "music_bot",
-  "version": "1.0.0",
-  "description": "Discord music bot - YouTube (via yt-dlp), SoundCloud, Spotify",
+  "version": "2.0.0",
+  "description": "Simple Discord music bot using @discordjs/voice + yt-dlp",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,11 +10,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@discord-player/extractor": "^7.1.0",
-    "discord-player": "^7.1.0",
+    "@discordjs/opus": "^0.9.0",
+    "@discordjs/voice": "^0.17.0",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
-    "ffmpeg-static": "^5.2.0",
+    "sodium-native": "^4.0.0",
     "spotify-url-info": "^2.2.3"
   }
 }
