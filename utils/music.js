@@ -131,19 +131,15 @@ class MusicQueue {
     
     console.log('[resource] Got stream URL, starting FFmpeg...');
     
-    // Step 2: Let FFmpeg fetch the URL directly (better buffering than piping)
+    // Just copy the audio stream - no re-encoding! Source is already opus.
     const ffmpeg = spawn('ffmpeg', [
       '-reconnect', '1',
-      '-reconnect_streamed', '1',
+      '-reconnect_streamed', '1', 
       '-reconnect_delay_max', '5',
       '-i', streamUrl,
       '-vn',                     // No video
-      '-acodec', 'libopus',      // Opus codec
-      '-f', 'ogg',               // OGG container  
-      '-ar', '48000',            // 48kHz
-      '-ac', '2',                // Stereo
-      '-b:a', '192k',            // 192kbps
-      '-application', 'audio',   // Optimize for music
+      '-c:a', 'copy',            // COPY audio, don't re-encode!
+      '-f', 'ogg',               // OGG container
       'pipe:1'
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
     
@@ -153,19 +149,19 @@ class MusicQueue {
     
     ffmpeg.stderr.on('data', (d) => {
       const msg = d.toString().trim();
-      if (msg && (msg.includes('Audio:') || msg.includes('Stream') || msg.includes('error'))) {
+      if (msg && (msg.includes('Audio:') || msg.includes('Stream') || msg.includes('error') || msg.includes('Output'))) {
         console.log('[ffmpeg]', msg);
       }
     });
     
-    // Create audio resource with OggOpus
+    // Create audio resource with OggOpus (passthrough, no quality loss)
     const resource = createAudioResource(ffmpeg.stdout, {
       inputType: StreamType.OggOpus,
       inlineVolume: false,
     });
     
     resource.metadata = track;
-    console.log('[resource] Created (Opus 192kbps)');
+    console.log('[resource] Created (opus passthrough - no re-encoding)');
     return resource;
   }
   
