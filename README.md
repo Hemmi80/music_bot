@@ -1,6 +1,10 @@
 # Discord Music Bot
 
-A Discord bot that plays music from **YouTube**, **SoundCloud**, and **Spotify** links. Spotify links are resolved to YouTube (no Spotify Developer app required).
+A Discord bot that plays music from **YouTube** (via yt-dlp), **SoundCloud**, and **Spotify** links.
+
+- **YouTube**: Uses yt-dlp (more reliable than JS libraries)
+- **SoundCloud**: Direct support
+- **Spotify**: Resolves track info and searches on SoundCloud
 
 ## Requirements
 

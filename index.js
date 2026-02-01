@@ -1,27 +1,36 @@
 const { Client, GatewayIntentBits } = require('discord.js');
 const { Player } = require('discord-player');
-const { YoutubeiExtractor } = require('discord-player-youtubei');
-const { DefaultExtractors } = require('@discord-player/extractor');
+const { SoundCloudExtractor, AttachmentExtractor } = require('@discord-player/extractor');
 const { token } = require('./config');
 const { checkYtDlp } = require('./utils/yt-dlp');
 const path = require('path');
 const fs = require('fs');
 
+console.log('=== Music Bot Starting ===');
+
 // Check yt-dlp availability at startup
-checkYtDlp();
+const ytDlpOk = checkYtDlp();
+console.log('yt-dlp available:', ytDlpOk);
+
+// Check ffmpeg
+try {
+  require('child_process').execSync('ffmpeg -version', { stdio: 'ignore' });
+  console.log('ffmpeg: available (system)');
+} catch {
+  try {
+    const ffmpegPath = require('ffmpeg-static');
+    console.log('ffmpeg: available (ffmpeg-static):', ffmpegPath);
+    process.env.FFMPEG_PATH = ffmpegPath;
+  } catch {
+    console.error('ffmpeg: NOT FOUND - audio will not work!');
+  }
+}
 
 if (!token || typeof token !== 'string' || !token.trim()) {
-  const tokenLikeKeys = Object.keys(process.env).filter(
-    (k) => k.includes('DISCORD') || k.includes('TOKEN')
-  );
-  console.error(
-    'DISCORD_TOKEN is missing or empty. On Railway: set DISCORD_TOKEN in your service Variables tab.'
-  );
-  if (tokenLikeKeys.length) {
-    console.error('Env keys that might be relevant:', tokenLikeKeys.join(', '));
-  }
+  console.error('DISCORD_TOKEN is missing or empty.');
   process.exit(1);
 }
+console.log('Token: present');
 
 const client = new Client({
   intents: [
@@ -38,13 +47,16 @@ for (const ev of playerEvents) {
   player.events.on(ev.name, ev.execute);
 }
 
-// ANDROID client + disablePlayer avoids signature decipher (fixes "Failed to extract signature decipher algorithm" and reduces memory)
+// Only load extractors that work reliably - skip broken YouTube extractor
 async function loadExtractors() {
-  await player.extractors.register(YoutubeiExtractor, {
-    disablePlayer: true,
-    streamOptions: { useClient: 'ANDROID' },
-  });
-  await player.extractors.loadMulti(DefaultExtractors);
+  console.log('Loading extractors...');
+  // SoundCloud extractor
+  await player.extractors.register(SoundCloudExtractor, {});
+  console.log('- SoundCloudExtractor loaded');
+  // Attachment extractor for direct URLs (used by yt-dlp fallback)
+  await player.extractors.register(AttachmentExtractor, {});
+  console.log('- AttachmentExtractor loaded');
+  console.log('Extractors ready');
 }
 
 // Load command files

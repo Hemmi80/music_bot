@@ -1,6 +1,0 @@
-# Extend provider defaults with yt-dlp
-[phases.setup]
-nixPkgs = ["...", "yt-dlp"]
-
-[start]
-cmd = "npm start"
