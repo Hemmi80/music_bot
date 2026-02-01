@@ -123,71 +123,88 @@ class MusicQueue {
   async createResource(track) {
     console.log('[resource] Creating for:', track.url);
     
-    return new Promise((resolve, reject) => {
-      // Use yt-dlp to get highest quality audio
-      // Prefer opus/webm > m4a > any audio > best overall
-      const ytdlp = spawn('yt-dlp', [
-        '-f', 'bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio[ext=m4a]/bestaudio/best',
-        '-o', '-',
+    // Step 1: Get the direct stream URL from yt-dlp (fast, just metadata)
+    const streamUrl = await this.getStreamUrl(track.url);
+    if (!streamUrl) {
+      throw new Error('Could not get stream URL');
+    }
+    
+    console.log('[resource] Got stream URL, starting FFmpeg...');
+    
+    // Step 2: Let FFmpeg fetch the URL directly (better buffering than piping)
+    const ffmpeg = spawn('ffmpeg', [
+      '-reconnect', '1',
+      '-reconnect_streamed', '1',
+      '-reconnect_delay_max', '5',
+      '-i', streamUrl,
+      '-vn',                     // No video
+      '-acodec', 'libopus',      // Opus codec
+      '-f', 'ogg',               // OGG container  
+      '-ar', '48000',            // 48kHz
+      '-ac', '2',                // Stereo
+      '-b:a', '192k',            // 192kbps
+      '-application', 'audio',   // Optimize for music
+      'pipe:1'
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    
+    ffmpeg.on('error', (err) => {
+      console.error('[ffmpeg] error:', err.message);
+    });
+    
+    ffmpeg.stderr.on('data', (d) => {
+      const msg = d.toString().trim();
+      if (msg && (msg.includes('Audio:') || msg.includes('Stream') || msg.includes('error'))) {
+        console.log('[ffmpeg]', msg);
+      }
+    });
+    
+    // Create audio resource with OggOpus
+    const resource = createAudioResource(ffmpeg.stdout, {
+      inputType: StreamType.OggOpus,
+      inlineVolume: false,
+    });
+    
+    resource.metadata = track;
+    console.log('[resource] Created (Opus 192kbps)');
+    return resource;
+  }
+  
+  // Get direct stream URL from yt-dlp
+  getStreamUrl(videoUrl) {
+    return new Promise((resolve) => {
+      const proc = spawn('yt-dlp', [
+        '-f', 'bestaudio[acodec=opus]/bestaudio/best',
+        '-g',  // Just print URL, don't download
         '--no-playlist',
-        '--audio-quality', '0',  // Best quality
-        '--verbose',             // Show what format is selected
-        track.url
+        videoUrl
       ], { stdio: ['ignore', 'pipe', 'pipe'] });
       
-      // Convert to high-quality Opus (Discord's native format)
-      const ffmpeg = spawn('ffmpeg', [
-        '-i', 'pipe:0',
-        '-loglevel', 'info',
-        '-vn',                     // No video
-        '-acodec', 'libopus',      // Opus codec
-        '-f', 'ogg',               // OGG container
-        '-ar', '48000',            // 48kHz
-        '-ac', '2',                // Stereo
-        '-b:a', '192k',            // Higher bitrate (192kbps)
-        '-application', 'audio',   // Optimize for music
-        'pipe:1'
-      ], { stdio: ['pipe', 'pipe', 'pipe'] });
+      let url = '';
+      proc.stdout.on('data', (d) => { url += d.toString(); });
       
-      // Pipe yt-dlp output to ffmpeg
-      ytdlp.stdout.pipe(ffmpeg.stdin);
-      
-      ytdlp.on('error', (err) => {
-        console.error('[yt-dlp] error:', err.message);
-        reject(err);
+      proc.stderr.on('data', (d) => {
+        const msg = d.toString().trim();
+        if (msg) console.log('[yt-dlp]', msg);
       });
       
-      ytdlp.stderr.on('data', (d) => {
-        const msg = d.toString().trim();
-        // Log format selection info
-        if (msg && (msg.includes('format') || msg.includes('audio') || msg.includes('Downloading'))) {
-          console.log('[yt-dlp]', msg);
+      proc.on('close', (code) => {
+        const streamUrl = url.trim();
+        if (code === 0 && streamUrl.startsWith('http')) {
+          console.log('[yt-dlp] Got stream URL');
+          resolve(streamUrl);
+        } else {
+          console.error('[yt-dlp] Failed to get URL, code:', code);
+          resolve(null);
         }
       });
       
-      ffmpeg.on('error', (err) => {
-        console.error('[ffmpeg] error:', err.message);
-        reject(err);
-      });
+      proc.on('error', () => resolve(null));
       
-      ffmpeg.stderr.on('data', (d) => {
-        const msg = d.toString().trim();
-        // Log audio stream info
-        if (msg && (msg.includes('Audio:') || msg.includes('Stream'))) {
-          console.log('[ffmpeg]', msg);
-        }
-      });
-      
-      // Create audio resource with OggOpus
-      const resource = createAudioResource(ffmpeg.stdout, {
-        inputType: StreamType.OggOpus,
-        inlineVolume: false,
-      });
-      
-      resource.metadata = track;
-      
-      console.log('[resource] Created (Opus 192kbps)');
-      resolve(resource);
+      // Timeout
+      setTimeout(() => {
+        proc.kill();
+        resolve(null);
+      }, 15000);
     });
   }
   
