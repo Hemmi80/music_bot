@@ -124,27 +124,27 @@ class MusicQueue {
     console.log('[resource] Creating for:', track.url);
     
     return new Promise((resolve, reject) => {
-      // Use yt-dlp to get best audio quality
+      // Use yt-dlp to get highest quality audio
+      // Prefer opus/webm > m4a > any audio > best overall
       const ytdlp = spawn('yt-dlp', [
-        '-f', 'bestaudio/best',
+        '-f', 'bestaudio[acodec=opus]/bestaudio[acodec=vorbis]/bestaudio[ext=m4a]/bestaudio/best',
         '-o', '-',
         '--no-playlist',
-        '--no-warnings',
+        '--audio-quality', '0',  // Best quality
+        '--verbose',             // Show what format is selected
         track.url
       ], { stdio: ['ignore', 'pipe', 'pipe'] });
       
-      // Convert to high-quality Opus in OGG container (Discord's native format)
+      // Convert to high-quality Opus (Discord's native format)
       const ffmpeg = spawn('ffmpeg', [
         '-i', 'pipe:0',
-        '-analyzeduration', '0',
-        '-loglevel', 'warning',
-        '-acodec', 'libopus',      // Opus codec (Discord native)
+        '-loglevel', 'info',
+        '-vn',                     // No video
+        '-acodec', 'libopus',      // Opus codec
         '-f', 'ogg',               // OGG container
-        '-ar', '48000',            // 48kHz (Discord standard)
+        '-ar', '48000',            // 48kHz
         '-ac', '2',                // Stereo
-        '-b:a', '128k',            // 128kbps bitrate (good quality)
-        '-vbr', 'on',              // Variable bitrate for better quality
-        '-compression_level', '10', // Best compression quality
+        '-b:a', '192k',            // Higher bitrate (192kbps)
         '-application', 'audio',   // Optimize for music
         'pipe:1'
       ], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -159,7 +159,10 @@ class MusicQueue {
       
       ytdlp.stderr.on('data', (d) => {
         const msg = d.toString().trim();
-        if (msg) console.log('[yt-dlp]', msg);
+        // Log format selection info
+        if (msg && (msg.includes('format') || msg.includes('audio') || msg.includes('Downloading'))) {
+          console.log('[yt-dlp]', msg);
+        }
       });
       
       ffmpeg.on('error', (err) => {
@@ -169,19 +172,21 @@ class MusicQueue {
       
       ffmpeg.stderr.on('data', (d) => {
         const msg = d.toString().trim();
-        if (msg && !msg.includes('size=')) console.log('[ffmpeg]', msg);
+        // Log audio stream info
+        if (msg && (msg.includes('Audio:') || msg.includes('Stream'))) {
+          console.log('[ffmpeg]', msg);
+        }
       });
       
-      // Create audio resource with OggOpus (no re-encoding needed by discord.js)
+      // Create audio resource with OggOpus
       const resource = createAudioResource(ffmpeg.stdout, {
         inputType: StreamType.OggOpus,
-        inlineVolume: false, // Can't use with OggOpus, but quality is better
+        inlineVolume: false,
       });
       
-      // Set metadata
       resource.metadata = track;
       
-      console.log('[resource] Created successfully (Opus 128kbps)');
+      console.log('[resource] Created (Opus 192kbps)');
       resolve(resource);
     });
   }
