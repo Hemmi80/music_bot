@@ -142,9 +142,8 @@ module.exports = {
 
     // If nothing is playing, start playback
     if (!queue.currentTrack) {
-      await queue.playNext();
-      // "Now playing" is sent by the queue, just delete our deferred reply
-      return interaction.deleteReply().catch(() => {});
+      await queue.playNext(true);  // silent=true, we send our own message
+      return interaction.followUp(`Now playing: **${info.title}**`);
     } else {
       return interaction.followUp(`Added to queue: **${info.title}**`);
     }

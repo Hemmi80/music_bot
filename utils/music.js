@@ -91,11 +91,11 @@ class MusicQueue {
     console.log('[queue] Added:', track.title);
   }
   
-  async playNext() {
+  async playNext(silent = false) {
     if (this.tracks.length === 0) {
       this.currentTrack = null;
       console.log('[queue] Empty');
-      if (this.textChannel) {
+      if (this.textChannel && !silent) {
         this.textChannel.send('Queue finished.').catch(() => {});
       }
       return;
@@ -108,7 +108,7 @@ class MusicQueue {
       const resource = await this.createResource(this.currentTrack);
       this.player.play(resource);
       
-      if (this.textChannel) {
+      if (this.textChannel && !silent) {
         this.textChannel.send(`Now playing: **${this.currentTrack.title}**`).catch(() => {});
       }
     } catch (error) {
