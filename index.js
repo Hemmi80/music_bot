@@ -48,11 +48,47 @@ const client = new Client({
 // Create player with explicit FFmpeg configuration and longer timeouts
 const player = new Player(client, {
   skipFFmpeg: false,
-  probeTimeout: 15000,        // 15 seconds to probe stream (default is 5)
+  probeTimeout: 30000,        // 30 seconds to probe stream
   connectionTimeout: 30000,   // 30 seconds to connect
 });
 client.player = player;
 console.log('Player created with extended timeouts');
+
+// Custom stream handler for YouTube URLs with FFmpeg reconnection
+player.extractors.context.onBeforeCreateStream = async (track, source, queue) => {
+  // Only handle googlevideo URLs (from yt-dlp)
+  if (!track.url || !track.url.includes('googlevideo.com')) {
+    return null; // Let default handler process it
+  }
+  
+  console.log('[onBeforeCreateStream] Creating FFmpeg stream for YouTube');
+  const { spawn } = require('child_process');
+  
+  // FFmpeg with reconnection options for YouTube streams
+  const ffmpeg = spawn('ffmpeg', [
+    '-reconnect', '1',
+    '-reconnect_streamed', '1',
+    '-reconnect_delay_max', '5',
+    '-i', track.url,
+    '-analyzeduration', '0',
+    '-loglevel', 'warning',
+    '-f', 's16le',
+    '-ar', '48000',
+    '-ac', '2',
+    'pipe:1'
+  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  
+  ffmpeg.on('error', (err) => console.error('[ffmpeg] error:', err.message));
+  ffmpeg.stderr.on('data', (d) => {
+    const msg = d.toString().trim();
+    if (msg) console.log('[ffmpeg]', msg);
+  });
+  
+  return {
+    stream: ffmpeg.stdout,
+    type: 'raw'
+  };
+};
 
 const playerEvents = require('./events/playerEvents');
 for (const ev of playerEvents) {
