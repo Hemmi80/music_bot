@@ -57,6 +57,11 @@ for (const ev of playerEvents) {
   player.events.on(ev.name, ev.execute);
 }
 
+// Also listen for player-level errors
+player.on('error', (error) => {
+  console.error('[player] error:', error);
+});
+
 // Only load extractors that work reliably - skip broken YouTube extractor
 async function loadExtractors() {
   console.log('Loading extractors...');
